@@ -1,4 +1,5 @@
 import math
+import os
 import time
 from datetime import datetime, timezone
 
@@ -442,6 +443,25 @@ def technical_score(b, retest, conf, vol, zone, micro_ok):
     return min(score, 10)
 
 
+def send_telegram(message):
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        return False
+    try:
+        r = session.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data={"chat_id": chat_id, "text": message},
+            timeout=15,
+        )
+        r.raise_for_status()
+        return True
+    except Exception as e:
+        print(f"TELEGRAM ERROR: {type(e).__name__}: {e}")
+        return False
+
+
+
 def risk_plan(price, b, atrv):
     if not b or atrv is None or atrv <= 0:
         return None
@@ -512,7 +532,12 @@ def analyze(symbol):
         print(f"READINESS: {ready}/5 | {ready_status}")
         print(f"LIFECYCLE: {life}")
         if plan:
+            plan_text = f"ENTRY READY\\n{symbol} {b['direction']}\\nEntry: {fmt(plan['entry'],6)}\\nSL: {fmt(plan['sl'],6)}\\nTP1: {fmt(plan['tp1'],6)}\\nTP2: {fmt(plan['tp2'],6)}\\nReadiness: {ready}/5"
             print(f"RISK PLAN: ENTRY {fmt(plan['entry'],6)} | SL {fmt(plan['sl'],6)} | TP1 {fmt(plan['tp1'],6)} | TP2 {fmt(plan['tp2'],6)}")
+            if send_telegram(plan_text):
+                print("TELEGRAM: SENT")
+            else:
+                print("TELEGRAM: NOT CONFIGURED")
         else:
             print("RISK PLAN: NOT READY")
         print("="*70)
